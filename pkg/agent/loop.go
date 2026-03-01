@@ -119,7 +119,13 @@ func registerSharedTools(
 		} else if searchTool != nil {
 			agent.Tools.Register(searchTool)
 		}
-		fetchTool, err := tools.NewWebFetchToolWithProxy(50000, cfg.Tools.Web.Proxy)
+		fetchTool, err := tools.NewWebFetchToolExtended(
+			50000,
+			cfg.Tools.Web.Proxy,
+			cfg.Tools.Web.Tavily.Enabled,
+			cfg.Tools.Web.Tavily.APIKey,
+			cfg.Tools.Web.Tavily.BaseURL,
+		)
 		if err != nil {
 			logger.ErrorCF("agent", "Failed to create web fetch tool", map[string]any{"error": err.Error()})
 		} else {
@@ -627,6 +633,7 @@ func (al *AgentLoop) runLLMIteration(
 
 	for iteration < agent.MaxIterations {
 		iteration++
+		logger.InfoCF("agent", "--- BUILD VERSION: GROQ_PATCH_V1 ---", nil)
 
 		logger.DebugCF("agent", "LLM iteration",
 			map[string]any{
@@ -667,11 +674,14 @@ func (al *AgentLoop) runLLMIteration(
 			if len(agent.Candidates) > 1 && al.fallback != nil {
 				fbResult, fbErr := al.fallback.Execute(ctx, agent.Candidates,
 					func(ctx context.Context, provider, model string) (*providers.LLMResponse, error) {
-						return agent.Provider.Chat(ctx, messages, providerToolDefs, model, map[string]any{
-							"max_tokens":       agent.MaxTokens,
-							"temperature":      agent.Temperature,
-							"prompt_cache_key": agent.ID,
-						})
+						options := map[string]any{
+							"max_tokens":  agent.MaxTokens,
+							"temperature": agent.Temperature,
+						}
+						if al.cfg.Agents.Defaults.PromptCacheKey != nil && *al.cfg.Agents.Defaults.PromptCacheKey {
+							options["prompt_cache_key"] = agent.ID
+						}
+						return agent.Provider.Chat(ctx, messages, providerToolDefs, model, options)
 					},
 				)
 				if fbErr != nil {
@@ -684,11 +694,11 @@ func (al *AgentLoop) runLLMIteration(
 				}
 				return fbResult.Response, nil
 			}
-			return agent.Provider.Chat(ctx, messages, providerToolDefs, agent.Model, map[string]any{
-				"max_tokens":       agent.MaxTokens,
-				"temperature":      agent.Temperature,
-				"prompt_cache_key": agent.ID,
-			})
+			options := map[string]any{
+				"max_tokens":  agent.MaxTokens,
+				"temperature": agent.Temperature,
+			}
+			return agent.Provider.Chat(ctx, messages, providerToolDefs, agent.Model, options)
 		}
 
 		// Retry loop for context/token errors

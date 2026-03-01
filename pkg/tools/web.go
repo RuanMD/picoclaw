@@ -519,18 +519,21 @@ func (t *WebSearchTool) Execute(ctx context.Context, args map[string]any) *ToolR
 }
 
 type WebFetchTool struct {
-	maxChars int
-	proxy    string
-	client   *http.Client
+	maxChars       int
+	proxy          string
+	client         *http.Client
+	tavilyEnabled  bool
+	tavilyAPIKey   string
+	tavilyBaseURL  string
 }
 
 func NewWebFetchTool(maxChars int) *WebFetchTool {
 	// createHTTPClient cannot fail with an empty proxy string.
-	tool, _ := NewWebFetchToolWithProxy(maxChars, "")
+	tool, _ := NewWebFetchToolExtended(maxChars, "", false, "", "")
 	return tool
 }
 
-func NewWebFetchToolWithProxy(maxChars int, proxy string) (*WebFetchTool, error) {
+func NewWebFetchToolExtended(maxChars int, proxy string, tavilyEnabled bool, tavilyAPIKey, tavilyBaseURL string) (*WebFetchTool, error) {
 	if maxChars <= 0 {
 		maxChars = defaultMaxChars
 	}
@@ -545,9 +548,12 @@ func NewWebFetchToolWithProxy(maxChars int, proxy string) (*WebFetchTool, error)
 		return nil
 	}
 	return &WebFetchTool{
-		maxChars: maxChars,
-		proxy:    proxy,
-		client:   client,
+		maxChars:      maxChars,
+		proxy:         proxy,
+		client:        client,
+		tavilyEnabled: tavilyEnabled,
+		tavilyAPIKey:  tavilyAPIKey,
+		tavilyBaseURL: tavilyBaseURL,
 	}, nil
 }
 
@@ -603,6 +609,71 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]any) *ToolRe
 		}
 	}
 
+	// Use Tavily for extraction if enabled and key is present
+	if t.tavilyEnabled && t.tavilyAPIKey != "" {
+		provider := &TavilySearchProvider{
+			apiKey:  t.tavilyAPIKey,
+			baseURL: t.tavilyBaseURL,
+			proxy:   t.proxy,
+			client:  t.client,
+		}
+
+		// Tavily search with include_raw_content: true would be better,
+		// but since we want content from a SPECIFIC URL, we use its extract capability.
+		// However, the current TavilySearchProvider only implements Search.
+		// As a fallback to provide "Dynamic navigation" without re-implementing much,
+		// we'll use a simple trick: use Search but scoped to that URL if possible,
+		// or just perform a direct Tavily API call here for extraction.
+
+		extractURL := t.tavilyBaseURL
+		if extractURL == "" {
+			extractURL = "https://api.tavily.com/extract"
+		}
+
+		payload := map[string]any{
+			"api_key": t.tavilyAPIKey,
+			"urls":    []string{urlStr},
+		}
+
+		bodyBytes, _ := json.Marshal(payload)
+		req, err := http.NewRequestWithContext(ctx, "POST", extractURL, bytes.NewBuffer(bodyBytes))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("User-Agent", userAgent)
+			resp, err := t.client.Do(req)
+			if err == nil {
+				defer resp.Body.Close()
+				body, _ := io.ReadAll(resp.Body)
+				if resp.StatusCode == http.StatusOK {
+					var extractResp struct {
+						Results []struct {
+							URL     string `json:"url"`
+							Raw     string `json:"raw_content"`
+							Content string `json:"content"`
+						} `json:"results"`
+					}
+					if err := json.Unmarshal(body, &extractResp); err == nil && len(extractResp.Results) > 0 {
+						text := extractResp.Results[0].Content
+						if text == "" {
+							text = extractResp.Results[0].Raw
+						}
+						if text != "" {
+							truncated := len(text) > maxChars
+							if truncated {
+								text = text[:maxChars]
+							}
+							return &ToolResult{
+								ForLLM: fmt.Sprintf("Fetched content from %s using Tavily (Dynamic)", urlStr),
+								ForUser: fmt.Sprintf("Extracted content from: %s\n\n%s", urlStr, text),
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback to static fetch if Tavily fails or is disabled
 	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("failed to create request: %v", err))

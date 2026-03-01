@@ -47,3 +47,5 @@ dist/
 
 # Windows Application Icon/Resource
 *.syso
+PORTAINER_STACK.yml
+docker/data/

@@ -4,16 +4,18 @@ services:
   #   docker compose -f docker/docker-compose.yml run --rm picoclaw-agent -m "Hello"
   # ─────────────────────────────────────────────
   picoclaw-agent:
-    image: docker.io/sipeed/picoclaw:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: picoclaw:local
     container_name: picoclaw-agent
     profiles:
       - agent
-    # Uncomment to access host network; leave commented unless needed.
-    #extra_hosts:
-    #  - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/root/.picoclaw
-    entrypoint: ["picoclaw", "agent"]
+      - ./data:/home/picoclaw/.picoclaw
+    environment:
+      - PICOCLAW_CONFIG_FILE=/home/picoclaw/.picoclaw/config.json
+    entrypoint: [ "picoclaw", "agent" ]
     stdin_open: true
     tty: true
 
@@ -22,13 +24,37 @@ services:
   #   docker compose -f docker/docker-compose.yml up picoclaw-gateway
   # ─────────────────────────────────────────────
   picoclaw-gateway:
-    image: docker.io/sipeed/picoclaw:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: picoclaw:local
     container_name: picoclaw-gateway
     restart: on-failure
     profiles:
       - gateway
-    # Uncomment to access host network; leave commented unless needed.
-    #extra_hosts:
-    #  - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/root/.picoclaw
+      - ./data:/home/picoclaw/.picoclaw
+    environment:
+      - PICOCLAW_GATEWAY_HOST=0.0.0.0
+      - PICOCLAW_CONFIG_FILE=/home/picoclaw/.picoclaw/config.json
+    ports:
+      - "18790:18790"
+
+  # ─────────────────────────────────────────────
+  # PicoClaw Web Launcher (UI Configurator)
+  #   docker compose -f docker/docker-compose.yml up picoclaw-launcher
+  # ─────────────────────────────────────────────
+  picoclaw-launcher:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: picoclaw:local
+    container_name: picoclaw-launcher
+    restart: on-failure
+    profiles:
+      - launcher
+    volumes:
+      - ./data:/home/picoclaw/.picoclaw
+    ports:
+      - "18800:18800"
+    entrypoint: [ "picoclaw-launcher", "-public", "/home/picoclaw/.picoclaw/config.json" ]

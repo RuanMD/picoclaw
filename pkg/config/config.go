@@ -179,6 +179,7 @@ type AgentDefaults struct {
 	MaxTokens           int      `json:"max_tokens"                      env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
 	Temperature         *float64 `json:"temperature,omitempty"           env:"PICOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
 	MaxToolIterations   int      `json:"max_tool_iterations"             env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+	PromptCacheKey      *bool    `json:"prompt_cache_key,omitempty"      env:"PICOCLAW_AGENTS_DEFAULTS_PROMPT_CACHE_KEY"`
 }
 
 // GetModelName returns the effective model name for the agent defaults.
