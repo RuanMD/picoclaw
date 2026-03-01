@@ -611,14 +611,8 @@ func (t *WebFetchTool) Execute(ctx context.Context, args map[string]any) *ToolRe
 
 	// Use Tavily for extraction if enabled and key is present
 	if t.tavilyEnabled && t.tavilyAPIKey != "" {
-		provider := &TavilySearchProvider{
-			apiKey:  t.tavilyAPIKey,
-			baseURL: t.tavilyBaseURL,
-			proxy:   t.proxy,
-			client:  t.client,
-		}
-
 		// Tavily search with include_raw_content: true would be better,
+
 		// but since we want content from a SPECIFIC URL, we use its extract capability.
 		// However, the current TavilySearchProvider only implements Search.
 		// As a fallback to provide "Dynamic navigation" without re-implementing much,

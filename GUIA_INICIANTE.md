@@ -102,6 +102,20 @@ Se precisar instalar manualmente via navegador:
    ```
 4. O robô lerá a nova skill automaticamente ou após um reinício da stack.
 
+### 🐳 Comandos Docker (Atualizar a Imagem na Nuvem)
+
+Sempre que você alterar o código-fonte (arquivos `.go`, `Dockerfile`, etc) e quiser que essas mudanças reflitam na sua VPS, use estes comandos no terminal do Mac:
+
+1. **Construir a Imagem:**
+   ```bash
+   docker build -t ghcr.io/ruanmd/picoclaw_docker:latest -f docker/Dockerfile .
+   ```
+
+2. **Subir para o GitHub (Push):**
+   ```bash
+   docker push ghcr.io/ruanmd/picoclaw_docker:latest
+   ```
+
 ---
 
 皮皮虾， we走！ (PicoClaw, Partiu! 🦞)
