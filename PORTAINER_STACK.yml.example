@@ -1,0 +1,64 @@
+version: '3.7'
+
+services:
+  picoclaw-gateway:
+    image: SEU_USUARIO_DOCKER/picoclaw_docker:latest
+    hostname: picoclaw-gateway
+    environment:
+      - PICOCLAW_GATEWAY_HOST=0.0.0.0
+      - PICOCLAW_CONFIG_FILE=/home/picoclaw/.picoclaw/config.json
+      # --- AGENTS DEFAULTS ---
+      - PICOCLAW_AGENTS_DEFAULTS_WORKSPACE=~/.picoclaw/workspace
+      - PICOCLAW_AGENTS_DEFAULTS_MODEL_NAME=gpt-4o
+      # --- TELEGRAM ---
+      - PICOCLAW_CHANNELS_TELEGRAM_ENABLED=true
+      - PICOCLAW_CHANNELS_TELEGRAM_TOKEN=COLE_SEU_TOKEN_AQUI
+      # --- PROVIDERS ---
+      - PICOCLAW_PROVIDERS_OPENAI_API_KEY=SUA_CHAVE_AQUI
+      - PICOCLAW_PROVIDERS_GROQ_API_KEY=SUA_CHAVE_AQUI
+      # --- TOOLS ---
+      - PICOCLAW_TOOLS_WEB_TAVILY_ENABLED=true
+      - PICOCLAW_TOOLS_WEB_TAVILY_API_KEY=SEU_TAVILY_AQUI
+    volumes:
+      - picoclaw_data:/home/picoclaw/.picoclaw
+    networks:
+      - network_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement: { constraints: [node.role == manager] }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.picoclaw.rule=Host(`SEU_DOMAIN_BOT.com.br`)
+        - traefik.http.routers.picoclaw.entrypoints=websecure
+        - traefik.http.routers.picoclaw.tls.certresolver=letsencryptresolver
+        - traefik.http.services.picoclaw.loadbalancer.server.port=18790
+
+  picoclaw-launcher:
+    image: SEU_USUARIO_DOCKER/picoclaw_docker:latest
+    hostname: picoclaw-launcher
+    environment:
+      - PICOCLAW_CONFIG_FILE=/home/picoclaw/.picoclaw/config.json
+    volumes:
+      - picoclaw_data:/home/picoclaw/.picoclaw
+    networks:
+      - network_public
+    entrypoint: [ "picoclaw-launcher", "-public", "/home/picoclaw/.picoclaw/config.json" ]
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement: { constraints: [node.role == manager] }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.picoclaw-launcher.rule=Host(`SEU_DOMAIN_PAINEL.com.br`)
+        - traefik.http.routers.picoclaw-launcher.entrypoints=websecure
+        - traefik.http.routers.picoclaw-launcher.tls.certresolver=letsencryptresolver
+        - traefik.http.services.picoclaw-launcher.loadbalancer.server.port=18800
+
+volumes:
+  picoclaw_data:
+    external: true
+
+networks:
+  network_public:
+    external: true

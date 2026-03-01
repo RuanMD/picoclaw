@@ -1,51 +1,32 @@
-# Binaries
-# Go build artifacts
-bin/
+# Binários e Executáveis
 build/
+bin/
+picoclaw
+picoclaw-launcher
 *.exe
 *.dll
 *.so
 *.dylib
-*.test
-*.out
-/picoclaw
-/picoclaw-test
-cmd/**/workspace
 
-# Picoclaw specific
-
-# PicoClaw
-.picoclaw/
+# Dados Sensíveis e Configurações Locais (CRÍTICO)
+docker/data/
+PORTAINER_STACK.yml
 config.json
-sessions/
-build/
-
-# Coverage
-
-# Secrets & Config (keep templates, ignore actual secrets)
 .env
-config/config.json
+*.pem
+*.key
 
-# Test
-coverage.txt
-coverage.html
-
-# OS
+# Ferramentas e IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
 .DS_Store
 
-# Ralph workspace
-ralph/
-.ralph/
-tasks/
+# Go (Golang)
+vendor/
+go.work
+go.work.sum
 
-# Editors
-.vscode/
-.idea/
-
-# Added by goreleaser init:
-dist/
-
-# Windows Application Icon/Resource
-*.syso
-PORTAINER_STACK.yml
-docker/data/
+# Docker
+.docker/
