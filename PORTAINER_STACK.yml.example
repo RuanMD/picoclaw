@@ -2,23 +2,58 @@ version: '3.7'
 
 services:
   picoclaw-gateway:
-    image: SEU_USUARIO_DOCKER/picoclaw_docker:latest
+    image: ghcr.io/ruanmd/picoclaw_docker:latest
     hostname: picoclaw-gateway
     environment:
       - PICOCLAW_GATEWAY_HOST=0.0.0.0
       - PICOCLAW_CONFIG_FILE=/home/picoclaw/.picoclaw/config.json
       # --- AGENTS DEFAULTS ---
       - PICOCLAW_AGENTS_DEFAULTS_WORKSPACE=~/.picoclaw/workspace
+      - PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE=true
       - PICOCLAW_AGENTS_DEFAULTS_MODEL_NAME=gpt-4o
+      - PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS=8192
+      - PICOCLAW_AGENTS_DEFAULTS_TEMPERATURE=0.7
+      - PICOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS=50
+      - PICOCLAW_AGENTS_DEFAULTS_PROMPT_CACHE_KEY=true
       # --- TELEGRAM ---
       - PICOCLAW_CHANNELS_TELEGRAM_ENABLED=true
-      - PICOCLAW_CHANNELS_TELEGRAM_TOKEN=COLE_SEU_TOKEN_AQUI
-      # --- PROVIDERS ---
-      - PICOCLAW_PROVIDERS_OPENAI_API_KEY=SUA_CHAVE_AQUI
-      - PICOCLAW_PROVIDERS_GROQ_API_KEY=SUA_CHAVE_AQUI
+      - PICOCLAW_CHANNELS_TELEGRAM_TOKEN=your_token_here
+      - PICOCLAW_CHANNELS_TELEGRAM_ALLOW_FROM=["your_id_here"]
+      - HOME=/home/picoclaw
+      # --- PROVIDERS (Model List) ---
+      - PICOCLAW_PROVIDERS_OPENAI_API_KEY=sk-your-openai-key
+      - PICOCLAW_PROVIDERS_OPENAI_API_BASE=https://api.openai.com/v1
+      - PICOCLAW_PROVIDERS_GROQ_API_KEY=gsk-your-groq-key
+      - PICOCLAW_PROVIDERS_GROQ_API_BASE=https://api.groq.com/openai/v1
+      - PICOCLAW_PROVIDERS_OPENROUTER_API_KEY=sk-or-v1-your-key
+      - PICOCLAW_PROVIDERS_OPENROUTER_API_BASE=https://openrouter.ai/api/v1
+      - PICOCLAW_PROVIDERS_ZHIPU_API_BASE=https://open.bigmodel.cn/api/paas/v4
+      - PICOCLAW_PROVIDERS_ANTHROPIC_API_BASE=https://api.anthropic.com/v1
+      - PICOCLAW_PROVIDERS_DEEPSEEK_API_BASE=https://api.deepseek.com/v1
+      - PICOCLAW_PROVIDERS_GEMINI_API_BASE=https://generativelanguage.googleapis.com/v1beta
+      - PICOCLAW_PROVIDERS_QWEN_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
+      - PICOCLAW_PROVIDERS_MOONSHOT_API_BASE=https://api.moonshot.cn/v1
+      - PICOCLAW_PROVIDERS_NVIDIA_API_BASE=https://integrate.api.nvidia.com/v1
+      - PICOCLAW_PROVIDERS_CEREBRAS_API_BASE=https://api.cerebras.ai/v1
+      - PICOCLAW_PROVIDERS_VOLCENGINE_API_BASE=https://ark.cn-beijing.volces.com/api/v3
+      - PICOCLAW_PROVIDERS_SHENGSUANYUN_API_BASE=https://api.shengsuanyun.com/v1
+      - PICOCLAW_PROVIDERS_MISTRAL_API_BASE=https://api.mistral.ai/v1
+      - PICOCLAW_PROVIDERS_OLLAMA_API_BASE=http://localhost:11434/v1
+      - PICOCLAW_PROVIDERS_VLLM_API_BASE=http://localhost:8000/v1
       # --- TOOLS ---
+      - PICOCLAW_TOOLS_WEB_BRAVE_ENABLED=false
+      - PICOCLAW_TOOLS_WEB_BRAVE_API_KEY=
       - PICOCLAW_TOOLS_WEB_TAVILY_ENABLED=true
-      - PICOCLAW_TOOLS_WEB_TAVILY_API_KEY=SEU_TAVILY_AQUI
+      - PICOCLAW_TOOLS_WEB_TAVILY_API_KEY=tvly-your-tavily-key
+      - PICOCLAW_TOOLS_WEB_DUCKDUCKGO_ENABLED=true
+      - PICOCLAW_TOOLS_WEB_DUCKDUCKGO_MAX_RESULTS=5
+      - PICOCLAW_TOOLS_CRON_EXEC_TIMEOUT_MINUTES=5
+      - PICOCLAW_TOOLS_EXEC_ENABLE_DENY_PATTERNS=true
+      # --- SYSTEM ---
+      - PICOCLAW_HEARTBEAT_ENABLED=true
+      - PICOCLAW_HEARTBEAT_INTERVAL=30
+      - PICOCLAW_DEVICES_ENABLED=false
+      - PICOCLAW_MEDIA_CLEANUP_ENABLED=true
     volumes:
       - picoclaw_data:/home/picoclaw/.picoclaw
     networks:
@@ -26,39 +61,68 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-      placement: { constraints: [node.role == manager] }
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
       labels:
         - traefik.enable=true
-        - traefik.http.routers.picoclaw.rule=Host(`SEU_DOMAIN_BOT.com.br`)
+        - traefik.http.routers.picoclaw.rule=Host(`picoclaw-bot.nexxusautomation.com.br`)
         - traefik.http.routers.picoclaw.entrypoints=websecure
+        - traefik.http.routers.picoclaw.priority=1
         - traefik.http.routers.picoclaw.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.picoclaw.service=picoclaw
         - traefik.http.services.picoclaw.loadbalancer.server.port=18790
+        - traefik.http.services.picoclaw.loadbalancer.passHostHeader=1
+        - traefik.docker.network=network_public
 
   picoclaw-launcher:
-    image: SEU_USUARIO_DOCKER/picoclaw_docker:latest
+    image: ghcr.io/ruanmd/picoclaw_docker:latest
     hostname: picoclaw-launcher
     environment:
       - PICOCLAW_CONFIG_FILE=/home/picoclaw/.picoclaw/config.json
+      - HOME=/home/picoclaw
     volumes:
       - picoclaw_data:/home/picoclaw/.picoclaw
     networks:
       - network_public
     entrypoint: [ "picoclaw-launcher", "-public", "/home/picoclaw/.picoclaw/config.json" ]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:18800/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
     deploy:
       mode: replicated
       replicas: 1
-      placement: { constraints: [node.role == manager] }
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
       labels:
         - traefik.enable=true
-        - traefik.http.routers.picoclaw-launcher.rule=Host(`SEU_DOMAIN_PAINEL.com.br`)
+        - traefik.http.routers.picoclaw-launcher.rule=Host(`picoclaw.nexxusautomation.com.br`)
         - traefik.http.routers.picoclaw-launcher.entrypoints=websecure
+        - traefik.http.routers.picoclaw-launcher.priority=1
         - traefik.http.routers.picoclaw-launcher.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.picoclaw-launcher.service=picoclaw-launcher
         - traefik.http.services.picoclaw-launcher.loadbalancer.server.port=18800
+        - traefik.http.services.picoclaw-launcher.loadbalancer.passHostHeader=1
+        - traefik.docker.network=network_public
 
 volumes:
   picoclaw_data:
+    name: picoclaw_data
     external: true
 
 networks:
   network_public:
+    name: network_public
     external: true
